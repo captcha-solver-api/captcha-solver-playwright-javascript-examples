@@ -1,0 +1,48 @@
+{
+  "name": "captcha-solver-playwright-javascript-examples",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Playwright examples for Captcha Solver JavaScript SDK",
+  "scripts": {
+    "start": "node --env-file=.env index.js",
+    "turnstile-challenge": "node --env-file=.env index.js",
+    "turnstile": "node --env-file=.env examples/turnstile.js",
+    "recaptcha-v2": "node --env-file=.env examples/recaptcha-v2.js",
+    "recaptcha-v2-enterprise": "node --env-file=.env examples/recaptcha-v2-enterprise.js",
+    "recaptcha-v3": "node --env-file=.env examples/recaptcha-v3.js",
+    "yandex": "node --env-file=.env examples/yandex-smartcaptcha.js",
+    "yandex-image": "node --env-file=.env examples/yandex-smartcaptcha-image.js",
+    "tencent": "node --env-file=.env examples/tencent.js",
+    "geetest-v3": "node --env-file=.env examples/geetest-v3.js",
+    "geetest-v4": "node --env-file=.env examples/geetest-v4.js",
+    "image-to-text": "node --env-file=.env examples/image-to-text.js",
+    "coordinates": "node --env-file=.env examples/coordinates.js",
+    "balance": "node --env-file=.env examples/balance.js",
+    "test": "npm run test:unit && npm run test:syntax && npm run test:browser",
+    "test:unit": "node test/run.js",
+    "test:browser": "node test/verification.js",
+    "test:syntax": "node scripts/check-syntax.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run test && npm run lint && npm run format:check"
+  },
+  "dependencies": {
+    "@captcha-solver-api/javascript-sdk": "^1.0.0",
+    "playwright": "^1.56.1"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "prettier": "^3.9.10"
+  }
+}
