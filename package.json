@@ -4,6 +4,20 @@
   "private": true,
   "type": "module",
   "description": "Playwright examples for Captcha Solver JavaScript SDK",
+  "keywords": [
+    "captcha",
+    "captcha-solver",
+    "playwright",
+    "browser-automation",
+    "recaptcha",
+    "turnstile",
+    "geetest",
+    "yandex-smartcaptcha",
+    "tencent-captcha",
+    "image-to-text",
+    "javascript",
+    "examples"
+  ],
   "scripts": {
     "start": "node --env-file=.env index.js",
     "turnstile-challenge": "node --env-file=.env index.js",
