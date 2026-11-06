@@ -11,12 +11,20 @@ import { chromium } from 'playwright';
  * captcha ID and other initialization parameters. GeeTest solution fields, submission, and
  * success indicators are site-specific, so inspect and debug the target page before applying the
  * solution.
+ *
+ * How it works:
+ * STEP-01 - Configure the target, timeout, and SDK client.
+ * STEP-02 - Launch Chromium and open the target page.
+ * STEP-03 - Extract the GeeTest captcha ID from the loader script.
+ * STEP-04 - Create the task and wait for the solver result.
+ * STEP-05 - Log and submit the solution to the verification endpoint.
+ * STEP-06 - Verify that the endpoint accepts the solution.
+ * STEP-07 - Handle errors and close Chromium.
  */
 
-// Read the target URL from .env; replace the example.com placeholder before running.
+// STEP-01: Read the target and timeout, then create the SDK client.
 const websiteURL = process.env.GEETEST_V4_TARGET_URL || 'https://example.com/page_with_geetest_v4';
 const solverTimeout = 300_000;
-// Create the SDK client with the API key and a longer timeout for GeeTest.
 const client = new CaptchaClient({
   clientKey: process.env.CAPTCHA_API_KEY || 'YOUR_API_KEY',
   timeout: solverTimeout
@@ -25,7 +33,7 @@ const client = new CaptchaClient({
 let browser;
 let page;
 
-// Launch Chromium.
+// STEP-02: Launch Chromium and open the configured target page.
 chromium
   .launch({ headless: process.env.HEADLESS === 'true' })
   .then((instance) => {
@@ -38,24 +46,23 @@ chromium
     // Open the configured page containing GeeTest v4.
     return page.goto(websiteURL, { waitUntil: 'domcontentloaded' });
   })
-  // GeeTest v4 places captcha_id in the URL of its loader script.
+  // STEP-03: Extract captcha_id from the GeeTest v4 loader script URL.
   .then(() => page.locator('script[src*="captcha_id="]').first().getAttribute('src'))
   .then((scriptURL) => {
     const captchaId = scriptURL ? new URL(scriptURL).searchParams.get('captcha_id') : null;
     if (!captchaId) throw new Error('GeeTest v4 captcha ID not found.');
 
-    // Build the task from the extracted captcha ID.
+    // STEP-04: Build the task and wait for the solver result.
     const task = new Tasks.GeeTestProxyless({
       websiteURL,
       version: 4,
       initParameters: { captcha_id: captchaId }
     });
 
-    // Send the task to the service and wait for the solution.
     return client.solve(task);
   })
   .then((solution) => {
-    // Print the received solution to the console.
+    // STEP-05: Log and submit the solution to the verification endpoint.
     console.log('Solution:', solution);
 
     // Solution submission is site-specific; adapt this step to the target page.
@@ -78,12 +85,12 @@ chromium
     );
   })
   .then(({ ok, body }) => {
-    // Require both a successful HTTP response and explicit acceptance by the demo.
+    // STEP-06: Require successful HTTP and application-level acceptance.
     if (!ok || body.result !== 'success') throw new Error('Demo rejected the GeeTest v4 solution.');
     // Print the successful page verification to the console.
     console.log('Page confirmation: GeeTest v4 solution accepted.');
   })
-  // Handle errors raised during browser automation or CAPTCHA solving.
+  // STEP-07: Handle errors and always close Chromium.
   .catch(console.error)
   .finally(() => {
     // Always close the browser after the example finishes.

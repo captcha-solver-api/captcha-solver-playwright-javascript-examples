@@ -10,9 +10,18 @@ import { chromium } from 'playwright';
  * To use this example on another page, change the target URL and verify how that page exposes the
  * app ID and registers its result callback. Applying the solution is site-specific, so inspect and
  * debug the target page to determine the correct callback and acceptance check.
+ *
+ * How it works:
+ * STEP-01 - Configure the target, script URL, and SDK client.
+ * STEP-02 - Launch Chromium, capture the page callback, and open the target.
+ * STEP-03 - Extract the Tencent app ID from the URL or page bundle.
+ * STEP-04 - Create the task and wait for the solver result.
+ * STEP-05 - Log the solution and pass it to the captured callback.
+ * STEP-06 - Confirm that the callback receives the solution.
+ * STEP-07 - Handle errors and close Chromium.
  */
 
-// Read the target URL from .env; replace the example.com placeholder before running.
+// STEP-01: Read the target settings and create the SDK client.
 const websiteURL =
   process.env.TENCENT_TARGET_URL || 'https://example.com/page_with_tencent_captcha';
 // Read the CAPTCHA script URL from the local .env file.
@@ -22,7 +31,6 @@ const appIdPattern = new RegExp(
   `\\b\\w=["'](?<appId>\\d{6,})["'][^;]{0,${maximumAppIdSearchDistance}}?search,["']appid["']`,
   'i'
 );
-// Create the SDK client with the API key from CAPTCHA_API_KEY.
 const client = new CaptchaClient({
   clientKey: process.env.CAPTCHA_API_KEY || 'YOUR_API_KEY'
 });
@@ -30,7 +38,7 @@ const client = new CaptchaClient({
 let browser;
 let page;
 
-// Launch Chromium.
+// STEP-02: Launch Chromium, capture the page callback, and open the target.
 chromium
   .launch({ headless: process.env.HEADLESS === 'true' })
   .then((instance) => {
@@ -78,7 +86,7 @@ chromium
     // Open the configured page containing Tencent CAPTCHA.
     return page.goto(websiteURL, { waitUntil: 'domcontentloaded' });
   })
-  // Prefer appid from the URL; otherwise extract it from the demo JavaScript bundle.
+  // STEP-03: Extract appid from the URL or the demo JavaScript bundle.
   .then(() => {
     const queryAppId = new URL(websiteURL).searchParams.get('appid');
     if (queryAppId) return queryAppId;
@@ -107,18 +115,17 @@ chromium
     );
   })
   .then((appId) => {
-    // Build the task from the extracted app ID.
+    // STEP-04: Build the task and wait for the solver result.
     const task = new Tasks.TencentTaskProxyless({
       websiteURL,
       appId,
       captchaScript
     });
 
-    // Send the task to the service and wait for the solution.
     return client.solve(task);
   })
   .then((solution) => {
-    // Print the received solution to the console.
+    // STEP-05: Log the solution and pass it to the captured page callback.
     console.log('Solution:', solution);
 
     // Token injection and submission are site-specific; adapt this step to the target page.
@@ -135,7 +142,7 @@ chromium
         .then(() => solution)
     );
   })
-  // Confirm that the captured callback received the same ticket and random string.
+  // STEP-06: Confirm that the callback received the same ticket and random string.
   // Server-side acceptance requires an additional check specific to your target page.
   .then((solution) =>
     page.waitForFunction(
@@ -149,7 +156,7 @@ chromium
     // Print the callback confirmation to the console.
     console.log('Page confirmation: Tencent callback received the solution.');
   })
-  // Handle errors raised during browser automation or CAPTCHA solving.
+  // STEP-07: Handle errors and always close Chromium.
   .catch(console.error)
   .finally(() => {
     // Always close the browser after the example finishes.

@@ -10,11 +10,19 @@ import { chromium } from 'playwright';
  * To use this example on another page, change the target URL and update the widget and form
  * selectors. Token fields, callbacks, submission, and success indicators are site-specific, so
  * inspect and debug the target page before adapting the token application step.
+ *
+ * How it works:
+ * STEP-01 - Configure the target and create the SDK client.
+ * STEP-02 - Launch Chromium and open the target page.
+ * STEP-03 - Extract the SmartCaptcha site key from the page.
+ * STEP-04 - Create the task and wait for the solver result.
+ * STEP-05 - Log the solution and inject its token into the form.
+ * STEP-06 - Submit the form and verify that the page accepts the token.
+ * STEP-07 - Handle errors and close Chromium.
  */
 
-// Read the target page URL from the local .env file.
+// STEP-01: Read the target URL and create the SDK client.
 const websiteURL = process.env.YANDEX_TARGET_URL;
-// Create the SDK client with the API key from CAPTCHA_API_KEY.
 const client = new CaptchaClient({
   clientKey: process.env.CAPTCHA_API_KEY || 'YOUR_API_KEY'
 });
@@ -22,7 +30,7 @@ const client = new CaptchaClient({
 let browser;
 let page;
 
-// Launch Chromium.
+// STEP-02: Launch Chromium and open the configured target page.
 chromium
   .launch({ headless: process.env.HEADLESS === 'true' })
   .then((instance) => {
@@ -35,18 +43,17 @@ chromium
     // Open the configured page containing SmartCaptcha.
     return page.goto(websiteURL, { waitUntil: 'domcontentloaded' });
   })
-  // The public site key is stored on the SmartCaptcha container.
+  // STEP-03: Extract the public site key from the SmartCaptcha container.
   .then(() => page.locator('[data-sitekey]').first().getAttribute('data-sitekey'))
   .then((websiteKey) => {
     if (!websiteKey) throw new Error('SmartCaptcha site key not found.');
 
-    // Build the task from the extracted site key.
+    // STEP-04: Build the task and wait for the solver result.
     const task = new Tasks.YandexSmartCaptchaTaskProxyless({ websiteURL, websiteKey });
-    // Send the task to the service and wait for the solution.
     return client.solve(task);
   })
   .then((solution) => {
-    // Print the received solution to the console.
+    // STEP-05: Log the solution and inject its token into the form.
     console.log('Solution:', solution);
 
     // Token injection and submission are site-specific; adapt this step to the target page.
@@ -55,20 +62,19 @@ chromium
       element.value = token;
     }, solution.token);
   })
-  // Submit the form and wait for the page navigation to finish.
+  // STEP-06: Submit the form and verify that the page accepts the token.
   .then(() =>
     Promise.all([
       page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
       page.locator('#smartcaptcha-demo-submit').click()
     ])
   )
-  // Confirm acceptance through the greeting rendered by the demo after submission.
   .then(() => page.locator('.greeting').filter({ hasText: /\S/ }).innerText())
   .then((message) => {
     // Print the page confirmation to the console.
     console.log(`Page confirmation: ${message.trim()}`);
   })
-  // Handle errors raised during browser automation or CAPTCHA solving.
+  // STEP-07: Handle errors and always close Chromium.
   .catch(console.error)
   .finally(() => {
     // Always close the browser after the example finishes.

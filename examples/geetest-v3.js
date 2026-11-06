@@ -9,12 +9,20 @@ import { chromium } from 'playwright';
  * To use this example on another page, change the target URL and verify how that page provides the
  * gt and challenge values. GeeTest solution fields, submission, and success indicators are
  * site-specific, so inspect and debug the target page before applying the solution.
+ *
+ * How it works:
+ * STEP-01 - Configure the target, timeout, and SDK client.
+ * STEP-02 - Launch Chromium, install the interceptor, and open the target page.
+ * STEP-03 - Capture the fresh GeeTest gt and challenge values.
+ * STEP-04 - Create the task and wait for the solver result.
+ * STEP-05 - Log and submit the solution to the verification endpoint.
+ * STEP-06 - Verify that the endpoint accepts the solution.
+ * STEP-07 - Handle errors and close Chromium.
  */
 
-// Read the target URL from .env; replace the example.com placeholder before running.
+// STEP-01: Read the target and timeout, then create the SDK client.
 const websiteURL = process.env.GEETEST_V3_TARGET_URL || 'https://example.com/page_with_geetest_v3';
 const solverTimeout = 300_000;
-// Create the SDK client with the API key and a longer timeout for GeeTest.
 const client = new CaptchaClient({
   clientKey: process.env.CAPTCHA_API_KEY || 'YOUR_API_KEY',
   timeout: solverTimeout
@@ -23,7 +31,7 @@ const client = new CaptchaClient({
 let browser;
 let page;
 
-// Launch Chromium.
+// STEP-02: Launch Chromium, install the interceptor, and open the target page.
 chromium
   .launch({ headless: process.env.HEADLESS === 'true' })
   .then((instance) => {
@@ -55,12 +63,12 @@ chromium
     // Open the configured page containing GeeTest v3.
     return page.goto(websiteURL, { waitUntil: 'domcontentloaded' });
   })
-  // GeeTest v3 generates a fresh gt/challenge pair for every page load.
+  // STEP-03: Capture the fresh gt/challenge pair generated for this page load.
   .then(() => page.waitForFunction(() => window.__geetestConfig ?? null))
   // Convert the captured browser value into task parameters in Node.js.
   .then((handle) => handle.jsonValue())
   .then((config) => {
-    // Build the task from the captured parameters.
+    // STEP-04: Build the task and wait for the solver result.
     const task = new Tasks.GeeTestProxyless({
       websiteURL,
       gt: config.gt,
@@ -68,11 +76,10 @@ chromium
       geetestApiServerSubdomain: config.api_server || 'api.geetest.com'
     });
 
-    // Send the task to the service and wait for the solution.
     return client.solve(task);
   })
   .then((solution) => {
-    // Print the received solution to the console.
+    // STEP-05: Log and submit the solution to the verification endpoint.
     console.log('Solution:', solution);
 
     // Solution submission is site-specific; adapt this step to the target page.
@@ -99,12 +106,12 @@ chromium
     );
   })
   .then(({ ok, body }) => {
-    // Require both a successful HTTP response and explicit acceptance by the demo.
+    // STEP-06: Require successful HTTP and application-level acceptance.
     if (!ok || body.success !== true) throw new Error('Demo rejected the GeeTest v3 solution.');
     // Print the successful page verification to the console.
     console.log('Page confirmation: GeeTest v3 solution accepted.');
   })
-  // Handle errors raised during browser automation or CAPTCHA solving.
+  // STEP-07: Handle errors and always close Chromium.
   .catch(console.error)
   .finally(() => {
     // Always close the browser after the example finishes.

@@ -10,12 +10,20 @@ import { chromium } from 'playwright';
  * To use this example on another challenge page, change the target URL and verify the interception
  * logic, User-Agent, and clearance requirements. Challenge callbacks and navigation behavior are
  * site-specific, so inspect and debug the page before adapting the token application step.
+ *
+ * How it works:
+ * STEP-01 - Configure the target, User-Agent, timeouts, and SDK client.
+ * STEP-02 - Launch Chromium and install the parameter interception hooks.
+ * STEP-03 - Open the target and capture its challenge parameters.
+ * STEP-04 - Create the task and wait for the solver result.
+ * STEP-05 - Log the solution and pass its token to the page callback.
+ * STEP-06 - Verify successful navigation and a fresh clearance cookie.
+ * STEP-07 - Handle errors and close Chromium.
  */
 
-// Read the target URL from .env; replace the example.com placeholder before running.
+// STEP-01: Read the settings and create the SDK client.
 const websiteURL =
   process.env.TURNSTILE_CHALLENGE_TARGET_URL || 'https://example.com/page_with_turnstile_challenge';
-// Create the SDK client with the API key from CAPTCHA_API_KEY.
 const client = new CaptchaClient({
   clientKey: process.env.CAPTCHA_API_KEY || 'YOUR_API_KEY'
 });
@@ -35,7 +43,7 @@ const parametersPromise = new Promise((resolve) => {
   resolveParameters = resolve;
 });
 
-// Launch Chromium.
+// STEP-02: Launch Chromium and install the parameter interception hooks.
 chromium
   .launch({ headless: process.env.HEADLESS === 'true' })
   .then((instance) => {
@@ -98,10 +106,10 @@ chromium
     )
   )
   .then(() => {
-    // Open the configured page containing a Turnstile Challenge.
+    // STEP-03: Open the target page and start its Turnstile Challenge.
     return page.goto(websiteURL, { waitUntil: 'domcontentloaded' });
   })
-  // Wait for captured parameters, failing if the page does not provide them in time.
+  // STEP-03: Wait for captured parameters, failing if the page does not provide them in time.
   .then(() =>
     Promise.race([
       parametersPromise,
@@ -118,13 +126,12 @@ chromium
   .then((parameters) => {
     // Print the captured parameters before creating the task.
     console.log('Captured parameters:', parameters);
-    // Build the task from the intercepted challenge parameters.
+    // STEP-04: Build the task and wait for the solver result.
     const task = new Tasks.TurnstileProxyless(parameters);
-    // Send the task to the service and wait for the solution.
     return client.solve(task);
   })
   .then((solution) => {
-    // Print the received solution to the console.
+    // STEP-05: Log the solution before passing its token to the page callback.
     console.log('Solution:', solution);
 
     // Remember the old cookie: only a fresh cf_clearance proves that the challenge was cleared.
@@ -136,6 +143,7 @@ chromium
         return solution;
       });
   })
+  // STEP-05: Pass the token to the callback and wait for challenge navigation.
   .then((solution) =>
     Promise.all([
       page.waitForResponse(
@@ -154,12 +162,12 @@ chromium
     ])
   )
   .then(([response]) => {
-    // Check the navigation response before reading the updated clearance cookie.
+    // STEP-06: Verify navigation before reading the updated clearance cookie.
     if (!response.ok()) throw new Error(`Challenge returned HTTP ${response.status()}.`);
     return page.context().cookies(websiteURL);
   })
   .then((cookies) => {
-    // Require a fresh cookie instead of accepting clearance from a previous attempt.
+    // STEP-06: Require a fresh cookie instead of accepting old clearance.
     const clearance = cookies.find((cookie) => cookie.name === 'cf_clearance')?.value;
     if (!clearance || clearance === previousClearance) {
       throw new Error('The page did not issue a fresh cf_clearance cookie.');
@@ -167,7 +175,7 @@ chromium
     // Print the successful challenge verification to the console.
     console.log('Page confirmation: challenge cleared and target page loaded.');
   })
-  // Handle errors raised during browser automation or CAPTCHA solving.
+  // STEP-07: Handle errors and always close Chromium.
   .catch(console.error)
   .finally(() => {
     // Always close the browser after the example finishes.
