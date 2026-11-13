@@ -1,0 +1,11 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Disable routine version-update PRs while keeping security-update PRs enabled.
+    open-pull-requests-limit: 0
+    assignees:
+      - dariyaanis
